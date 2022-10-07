@@ -13,9 +13,9 @@ import java.io.*;
 @Component
 public class MailSendUtil {
 	
-	final String EMAIL_ID="toonivie0613@gmail.com";//sw@ideaconcert.com
-	final String EMAIL_PW="toon123!@"; //password root4477
-	final String EMAIL_SENDER_NAME="TOONFLIX";
+	final String EMAIL_ID="****@gmail.com";
+	final String EMAIL_PW="****";
+	final String EMAIL_SENDER_NAME="조정규";
 	
 	int size;
 	
