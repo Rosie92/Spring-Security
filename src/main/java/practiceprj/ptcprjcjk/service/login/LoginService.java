@@ -9,10 +9,10 @@ import practiceprj.ptcprjcjk.security.login.JwtUserDetailsService;
 import practiceprj.ptcprjcjk.security.login.PtcUsers;
 
 @Slf4j
-@Service
+@Service // 해당 클래스를 루트 컨테이너에 bean 객체로 생성해줌 == @Component(가시성이 떨어지기에 잘 사용하지 않음) | 서비스 레이어, 내부에서 자바 로직을 처리
 public class LoginService {
 
-    @Autowired // 의존성 주입
+    @Autowired
     private JwtUserDetailsService userDetailService;
 
     public void authenticateUser(String id, String pw) throws Exception { // 유저 정보 확인

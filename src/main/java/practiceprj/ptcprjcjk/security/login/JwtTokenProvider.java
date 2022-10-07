@@ -21,10 +21,10 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.function.Function;
 
-@Component
+@Component // 해당 클래스를 루트 컨테이너에 bean 객체로 생성해줌
 public class JwtTokenProvider { // JWT 토큰을 생성 및 검증 모듈
 
-	@Value("${spring.jwt.secret}")
+	@Value("${spring.jwt.secret}") // Spring으로 properties를 읽을 때 사용하는 방법 중 하나
 	private String secretKey;
 	@Value("${jwt.header-name}")
 	private String TOKEN_HEADER;
@@ -38,7 +38,7 @@ public class JwtTokenProvider { // JWT 토큰을 생성 및 검증 모듈
 	@Autowired
 	private JwtUserDetailsService userDetailService;
 
-	@PostConstruct
+	@PostConstruct //의존성 주입이 이루어진 후 초기화를 수행하는 메서드. class가 service를 수행하기 전에 발생. 이 메서드는 다른 리소스에서 호출되지 않더라도 수행됨
 	protected void init() {
 		secretKey = Base64.getEncoder().encodeToString(secretKey.getBytes());
 	}

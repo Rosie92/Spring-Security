@@ -121,8 +121,8 @@ public class PtcUsers implements UserDetails {
         return getUser_id();
     }
 
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    @Override
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY) // Json을 자바 객체로 역직렬화할 때 또는 그 반대일 때, Json에 담긴 Key이름과 변수명이 다른 문제가 발생할 때 사용 (Key 매핑)
+    @Override // 해당 메소드가 부모 클래스에 있는 메서드를 Override 했다는 것을 명시적으로 선언
     public boolean isAccountNonExpired() {
         // TODO Auto-generated method stub
         return true;

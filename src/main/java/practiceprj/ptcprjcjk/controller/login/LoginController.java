@@ -19,11 +19,11 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
 
-@Slf4j
-@Controller
+@Slf4j // 로그
+@Controller // 해당 클래스를 루트 컨테이너에 bean 객체로 생성해줌 == @Component(가시성이 떨어지기에 잘 사용하지 않음) | 프레젠테이션 레이어, 웹 요청과 응답을 처리
 public class LoginController {
 
-    @Autowired // 의존성 주입
+    @Autowired // 의존성 주입을 위해 사용, 필요한 의존 객체의 '타입'에 해당하는 bean을 자동으로 찾아 주입
     private LoginService loginService;
     @Autowired
     private JwtUserDetailsService jwtUserDetailsService;

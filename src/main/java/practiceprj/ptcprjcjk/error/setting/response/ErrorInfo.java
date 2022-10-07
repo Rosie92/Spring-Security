@@ -6,9 +6,9 @@ import java.util.List;
 
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class ErrorInfo {
     private Integer errorCode;
     private String errorMessage;
