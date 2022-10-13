@@ -10,4 +10,8 @@ public class UserException {
     public static class UserDuplicateException extends CjkRuntimeException{
         public UserDuplicateException() { super("중복된 유저 ID 입니다."); }
     }
+
+    public static class UserDataNotMatchedException extends CjkRuntimeException{
+        public UserDataNotMatchedException() { super("입력한 정보가 옳지 않습니다."); }
+    }
 }

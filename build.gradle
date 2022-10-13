@@ -20,7 +20,6 @@ repositories {
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
@@ -29,14 +28,20 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
 
+    // springSecurity
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    //implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity5'
+
     // swagger2
-    implementation group: 'io.springfox', name: 'springfox-swagger2', version: '2.9.2'
-    implementation group: 'io.springfox', name: 'springfox-swagger-ui', version: '2.9.2'
+    implementation 'io.springfox:springfox-boot-starter:3.0.0'
+    implementation 'io.springfox:springfox-swagger-ui:3.0.0'
+    /*implementation group: 'io.springfox', name: 'springfox-swagger2', version: '2.9.2'
+    implementation group: 'io.springfox', name: 'springfox-swagger-ui', version: '2.9.2'*/
 
     //jwt 토큰 관련 의존성
     implementation 'io.jsonwebtoken:jjwt:0.9.1'
-    implementation 'javax.xml.bind:jaxb-api'
-    implementation 'io.jsonwebtoken:jjwt-api:0.11.2'
+    /*implementation 'javax.xml.bind:jaxb-api'
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.2'*/
     /*runtime 'io.jsonwebtoken:jjwt-impl:0.11.2'
     runtime 'io.jsonwebtoken:jjwt-jackson:0.11.2'*/
 
@@ -45,6 +50,11 @@ dependencies {
     implementation "org.springframework.boot:spring-boot-starter-mail"
     implementation group: 'org.apache.commons', name: 'commons-email', version: '1.4'
     implementation group: 'org.json', name: 'json', version: '20160810'
+
+    //etc
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    testImplementation 'io.projectreactor:reactor-test'
 
 }
 

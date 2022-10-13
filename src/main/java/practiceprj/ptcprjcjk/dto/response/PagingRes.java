@@ -6,7 +6,7 @@ import lombok.ToString;
 
 @Builder
 @Data
-@ToString
+@ToString // toString() 메소드를 생성. Lombok Annotation
 public class PagingRes {
     private int page;
     private int perpage;

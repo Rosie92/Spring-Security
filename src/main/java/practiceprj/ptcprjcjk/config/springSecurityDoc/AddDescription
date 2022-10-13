@@ -1,0 +1,367 @@
+
+
+@Order(1) // order가 낮은 것부터 먼저 설정
+@Configuration
+@EnableWebSecurity/*Security 활성화*/(debug = true)/*옵션:request가 올 때마다 어떤 filter를 사용하고 있는지 출력*/
+/* 🧾 Servlet Container의 Filter ...
+        서블릿 컨테이너의 Filter는 Dispatch Survlet으로 가기 전에 먼저 적용됨
+        Filter들은 여러개가 연결되어 있어 Filter Chain이라고도 불림
+        모든 Request들은 FilterChain을 거쳐야 Servlet에 도착하게 됨
+ */
+@EnableGlobalMethodSecurity(prePostEnabled = true) // 사전에 prePost로 권한체크를 하겠다는 설정
+public class Stop_SecurityConfig extends WebSecurityConfigurerAdapter/*FilterChain을 구성하는 Configuration 클래스*/ {
+
+    @Autowired
+    UserDetailsService userDetailsService;
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        /*
+            🖍 SpringSecurity는 DeelegatingFilterProxy 라는 필터를 만들어 메인 FilterChain에 끼워넣고,
+                그 아래 다시 SecurityFilterChain 그룹을 등록함
+                그렇게 하며 URL에 따라 적용되는 FilterChain을 다르게 하는 방법을 사용함
+                어떤 경우에는 해당 Filter를 무시하고 통과하게 할 수도 있음
+            🖍 WebSecurityConfigurerAdapter는 FilterChain을 구성하는 Configuration 클래스로 해당 클래스의 상속을 통해 FilterChain을 구성할 수 있음
+
+            🖍 configure(HttpSecurity http)를 Override하며 Filter들을 세팅한다
+        */
+
+        http
+                .antMatcher("/**");
+                /* 🖍 해당 filter가 동작시킬 URL을 설정하려면 antMatcher를 통해 설정해야함
+                        모든 request에 대해 동작하려면 위와 같이 설정
+                        /api/~~ 에 대해 적용하고 싶다면 http.antMatcher("/api/**")
+                   🖍 여러 종류의 URL에 대해 여러 Filter를 만들고 싶다면 SecurityConfig 클래스를 여러개 만들어야함
+                        이 때, SecurityConfig의 순서가 중요하기에 @Order 어노테이션으로 순서를 지정해야함
+                */
+
+        // ━━━━━━━━━━━━━━━━ 🥎인가 정책 설정
+        http
+                .authorizeRequests((requests) ->
+                                requests.antMatchers("/").permitAll() // 요청에 대한 보안 검사 실행
+                .anyRequest().authenticated()                                    // 어떠한 요청에도 인증을 받도록 설정
+                        /* 🧾 Authentication의 구조
+                                🖍 Spring에서 로그인 한다는 것은 SecurityContext가 authenticated가 true인 Authentication 객체를 갖고 있는 상태를 말함
+                                    (※ 이때 authintication은 AnonymousAuthenticationToken이 아니어야함)
+                                🖍 SecurityContextHolder는 인증을 보관하는 보관소이며 Authentication을 갖고 있는 SecurityContext를 보관한다.
+                                🖍 AuthenticationProvider은 Authentication을 제공하며 이는 여러개가 존재할 수 있다.
+                                🖍 AuthenticationProvider를 관리하는 Interface를 AuthenticationManager라고 하며,
+                                    ProviderManager는 AuthenticationManager를 구현한다.
+                                🖍 Authentication은 권한의 정보와 인증 대상에 대한 Principal(접근 주체), Credential(비밀번호)의 정보를 갖는 인터페이스이다.
+
+                           🧾 Authentication에 들어가는 내용
+                                🖍 Set <GrantedAuthority> authorities : 인증된 권한 정보 목록
+                                🖍 principal : 인증 대상에 관한 정보로 사용자의 아이디 혹은 User객체가 저장된다.
+                                🖍 credentials : 인증 확인을 위한 정보로 주로 비밀번호가 온다. (※ 인증 후에는 보안을 위해 삭제한다.)
+                                🖍 details : 그 밖에 필요한 정보로 IP, 세션정보, 기타 인증요청에서 사용했던 정보들이 들어간다.
+                                🖍 boolean authenticated : 인증이 되었는지를 체크한다.
+
+                            🧾 Authentication을 제공하는 필터
+                                🖍 UsernamePasswordAuthenticationFilter : 폼 로그인을 처리해준다.
+                                🖍 OAuth2LoginAuthenticationFilter : 소셜 로그인을 처리해준다.
+                                🖍 RememberMeAuthenticationFilter : remember-me 쿠키 로그인을 처리해준다.
+                                🖍 AnonymousAuthenticationFilter : 로그인하지 않았다는 것을 인증해준다.
+                                🖍 SecurityContextPersistenceFilter : 기존 로그인을 유지해준다. (기본적으로 session 을 이용함)
+                                🖍 BearerTokenAuthenticationFilter : JWT 로그인을 처리해준다.
+                                🖍 BasicAuthenticationFilter : ajax 로그인 (Session이 있는 경우에 사용)
+                                🖍 OpenIDAuthenticationFilter : OpenID 로그인을 처리해준다.
+
+                            🧾 Authentication의 메커니즘
+                                🖍 Authentication에는 인증된 결과 뿐만 아니라 인증을 하기 위한 정보, 인증을 받기 위한 정보가 하나의 객체에 들어가 있다.
+                                🖍 AuthenticationProvider는 입력된 인증을 보고 허가된 인증을 내주는 방식으로 인증 허가를 판단하며,
+                                    처리 가능한 Authentication에 대해서 알려주는 support메서드를 지원한다.
+                                🖍 Authorities에는 '어디를 갈 수 있는지', '어떤 역할을 할 수 있는지'에 대한 권한 정보로 이를 구현(implement)한
+                                    GrantedAuthority에 관한 정보들이 저장되어있다
+
+                                    ┃ 인가, 권한(Authorization)
+                                    ┃ - 사용자가 어떤 일을 할 수 있는지 권한 설정하는 절차이다.
+                                    ┃ - 특정 페이지/리소스에 접근할 수 있는지 권한을 판단한다.
+                                    ┃ - Secured, PrePostAuthorize 어노테이션으로 쉽게 권한 체크를 할 수 있다.
+                                    ┃ - 비즈니스 로직이 복잡한 경우 AOP를 이용해 권한 체크를 해야한다.
+
+                                🖍 Authentication에 들어가 있는 Token들은 각각의 Filter들을 통해 발행된 Token들이다.
+                                🖍 Credentials은 인증을 받기 위해 필요한 정보들로 대표적인 예시로는 비밀번호가 있다.
+                                🖍 Principal은 인증된 결과에 대한 정보이다. credentials를 이용해 인증을 받고 그 결과이다!
+                                🖍 Details은 위의 정보 외의 인증에 관여된 주변 정보들을 갖고 있다.
+
+                            🧾 AuthenticationProvider
+                                🖍 Authentication을 제공하는 것을 Authentication Provider라고 한다.
+                                🖍 Authentication Provider는 credentials나 Principal이 있는 Authentication을 받아서 인증을 하고 인증된 결과를 다시 Authentication객체로 전달하는 역할을 한다.
+                                🖍 이때 Authentication Provider는 어떤 인증에 대해 승인을 해줄지 Authentication Manager에게 알려줘야 하기 때문에 support()라는 메서드를 제공합니다.
+                                🖍 Authentication Manager은 인증 대상과 방식이 다양할 수 있어 여러개일 수 있습니다.
+                        */
+                );
+
+        // ━━━━━━━━━━━━━━━━ 🥎인증 정책 설정
+        http
+                .formLogin() // SpringSecurity에서 제공하는 인증 방식
+                    /* 🧾 Form Login의 동작 방식
+                        🖍 사용자가 Server에 특정 URL을 요청하였을 때 해당 URL이 인증이 필요할 경우 Server는 Login 페이지를 return하게 됩니다.
+                        🖍 사용자는 username(ID)와 password를 입력하여 로그인 요청을 하면 Post mapping으로 해당 데이터가 서버에 전송됩니다.
+                        🖍 Server는 해당 로그인 정보를 확인합니다. 해당 유저 정보가 존재한다면 Session과 Token을 생성하고 저장해둡니다
+
+                        🖍 이러한 과정을 거친 후 사용자가 원래 접속하려던 url에 접속 요청을 할 경우 세션에 저장된 인증 토근으로 접근을 할 수 있게되며,
+                        세션에 인증토큰이 있는 동안은 해당 사용자가 인증된 사용자라 판단하여 인증을 유지하게 됨
+                    */
+
+                    /*사용자 정의 로그인 페이지. 인증이 필요할 때 이동하는 페이지를 설정하는 api.
+                        해당 api를 설정하지 않으면 기본적으로 SpringSecurity가 제공하는 템플릿으로 연결*/
+                    .loginPage("/login.html")
+                    .defaultSuccessUrl("/home") // 로그인 성공 후 이동 페이지. 인증이 성공했을 때 Default로 이동하는 URL을 지정하는 api
+                    // 로그인 실패 후 이동 페이지. 인증이 실패했을 때 이동하는 페이지를 지정하는 api
+                    .failureUrl("/login.html?error=true")
+                    .usernameParameter("username") // 아이디 및 패스워드 파라미터명 설정 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+                    .passwordParameter("password") // SpringSecurity에서 기본 값인 username,password의 파라미터값을 변경하게 해주는 api━┛
+                    .loginProcessingUrl("/login") // 로그인 Form Action Url. 폼 태그의 action url을 설정하는 api. Default==default login
+                    .successHandler( // 로그인 성공 후 핸들러. 로그인이 성공했을 때 success handler를 호출하는 api.
+                                     // 파라미터로는 AuthenticationSuccessHandler 인터페이스를 구현한 것을 넣으면 됨
+                                     //작성된 코드로는 인증이 성공하였을 때 인증 객체에 저장된 사용자의 이름을 출력한 후 root 페이지로 이동하게 됨
+                            new AuthenticationSuccessHandler() {
+                                @Override
+                                public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+                                    // 해당 객체에 이전에 요청받은 url정보를 세션에 저장하고 인증이 된다면 해당 url로 이동하게 설정
+                                    RequestCache requestCache = new HttpSessionRequestCache(); /* 사용자의 이전 요청 정보를 세션에 저장하고 꺼내오는 일을 함 ━━━━━━━━━━━━━━━━━━━━━━━┓
+                                                                                                                요청 정보를 실제로 저장하는 것은 SavedRequest 구현체가 수행.
+                                                                                                                이를 세션에 저장하는 것은 RequestCache 인터페이스의 구현체가 수행       */
+                                    SavedRequest savedRequest = requestCache.getRequest(request, response); // 사용자가 요청하였던 요청의 파라미터 값과 header값을 저장 ━━━━━━━━━━━┛
+                                    String redirectUrl = savedRequest.getRedirectUrl();
+                                    response.sendRedirect(redirectUrl);
+                                    /*System.out.println("authentication : " + authentication.getName());
+                                    response.sendRedirect("/");                  // 인증이 성공한 후에는 root로 이동*/
+                                }
+                            }
+                    )
+                    .failureHandler( // 로그인 실패 후 핸들러. 로그인 실패 시 failure handler를 호출하는 api.
+                                     // 파라미터로는 AuthenticationFailureHandler 인터페이스를 구현한 것을 넣으면 됨
+                                     // 작성된 코드로는 인증이 실패했을 때 exception 메시지를 출력하고 login 페이지로 redirect되어 이동하게 됨
+                            new AuthenticationFailureHandler() {
+                                @Override
+                                public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
+                                    System.out.println("exception : " + exception.getMessage());
+                                    response.sendRedirect("/login");
+                                }
+                            }
+                    )
+                    /* [ http.authorizeRequests().anyRequest().authenticated(); ] 와 같이 인가(Authorization) 관련 코드가 있다면,
+                        인증을 받지 않았으면 어떤 Request들도 접근이 안될 수 있음.
+                        그러면 우리가 로그인 페이지로 사용할 loginPage도 인증을 받지 않으면 접근이 불가능한데,
+                        permitAll을 붙여주면 해당 경로는 인증을 받지 않아도 누구나 접근이 가능해짐
+                    */
+                    .permitAll();
+
+
+
+                    /* 🧾 Form Login 인증 필더 동작 과정
+                            🖍 Form Login을 사용하게 된다면 인증 필터인 UsernamePasswordAuthenticationFilter가 실행되게 됩니다.
+                            🖍 AntPathRequestMatcher는 요청 정보의 url이 해당 값으로 시작되는지 체크를 하는 하며 요청 정보가 일치하지 않는다면
+                                chain.doFilter라는 Filter로 이동한다.
+                                ※ url의 값은 .loginProcessingUrl(“/login")의 값 변경에 따라 변경됩니다.
+                            🖍 요청 정보가 일치하면 Username과 Password정보가 담긴 Authentication 객체를 생성하여 AuthenticationManager에 넘깁니다.
+                            🖍 AuthenticationManager는 이전 과정에서 받은 Authenticaton객체를 AuthenticationProvider에 넘겨주어 인증을 체크하도록 합니다.
+                            🖍 AuthenticationProvider는 실질적으로 인증을 체크하는 역할을 합니다.
+                                인증을 성공한다면 최종적인 Authenticatoin객체를 생성하여 Authentication객체를 넘기며,
+                                인증을 실패한다면 AuthenticationException을 호출하여 UsernamePasswordAuthenticationFilter가 시작된 초기 부분으로 이동하게 합니다.
+                            🖍 AuthenticationManager는 AuthenticationProvider로부터 받은 최종 Authentication객체를 다음 과정으로 넘겨줍니다.
+                            🖍 최종 Authenticatoin 객체는 Security Context에 저장됩니다.
+                            🖍 Security Context에 저장된 후에는 SuccessHandler를 호출하여 실행하게 됩니다.
+
+                            🖍 이 후에는 SecurityContextHolder.getContext().getAuthentication()코드를 통해 인증 객체를 꺼내서 쓸 수 있습니다.
+                                [최종 Authentication 객체는 (🧾 Authentication의 구조) 에서 Authentication에 들어가는 내용 부분을 통해 확인]
+                    */
+                /*.formLogin(
+                        login -> login.defaultSuccessUrl("/", false)
+                ); // formLogin인증 방식을 사용하도록 설정*/
+
+        // ━━━━━━━━━━━━━━━━ 🥎
+        http
+                .exceptionHandling()
+                .authenticationEntryPoint(new AuthenticationEntryPoint() {
+                    @Override
+                    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, ServletException {
+                        response.sendRedirect("/login");
+                    }
+                })
+                .accessDeniedHandler(new AccessDeniedHandler() {
+                    @Override
+                    public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException accessDeniedException) throws IOException, ServletException {
+                        response.sendRedirect("/denied");
+                    }
+                });
+
+        // ━━━━━━━━━━━━━━━━ 🥎
+        http
+                .httpBasic();
+
+        // ━━━━━━━━━━━━━━━━ 🥎로그아웃
+        /* 🧾 Logout Filter
+                🖍 로그아웃을 하기 위해서는 logout request를 받았을 때 server의 세션을 무효화하고 쿠키 정보, 인증 토큰과 인증 토큰이 저장된
+                Security Context의 객체를 삭제해줘야함
+
+            🧾 동작 원리
+                 🖍 AntPathRequestMatcher를 통해 logout을 처리하는 url이 들어왔는지 확인을 합니다. 만약 해당 url이 아닐 경우 다음 Filter로 이동을 합니다.
+                 🖍 Authentication객체를 Security Context에서 찾고 해당 객체를 SecurityContextLogoutHander로 넘겨줍니다.
+                 🖍 기본적인 LogoutHandler는 4개가 존재하는데,
+                        그 중 SecurityContextLogoutHander는 세션 무효화, 쿠키 삭제, SecurityContextHolder내용 삭제 등의 작업을 해줍니다.
+                 🖍 LogoutFilter의 작업이 끝나면 SimpleUrlLogoutSuccessHander가 동작을 하게 됩니다.
+
+        */
+        http
+                .logout() // 로그아웃 처리
+                    .logoutUrl("/logout") // 로그아웃 처리를 할 URL을 입력. SpringSecurity에서는 원칙적으로 logout을 실행할 때 PostMapping을 사용
+                .logoutSuccessUrl("/login") // 로그아웃 성공 후 이동페이지
+                    .deleteCookies("JSESSIONID", "remember - me"); // 로그아웃 시 서버에서 만든 쿠키를 삭제할 때 사용. 삭제하고 싶은 쿠키명 입력
+                /* 로그아웃 핸들러.
+                        로그아웃을 했을 때 SpringSecurity가 기본적으로 구현한 로그아웃 구현체는 세션을 무효화시키고 인증 토큰을 삭제하는 등의 동작을 함.
+                        그 외에 추가적으로 개발자가 구현하고 싶은 내용이 있을 경우 새로운 logoutHandler를 만들고 해당 api를 통해 사용할 수 있음
+                    .addLogoutHandler(logoutHandler()) */
+                /* 로그아웃 성공 후 핸들러. 로그아웃이 성공했을 때 logoutSuccessHandler를 호출하는 api.
+                        파라미터로는 logoutSuccessHandler 인터페이스를 구현한 것을 넣으면 됨
+                            ┃🧾 logiytSuccessUrl()과 logoutSuccessHandler()의 차이
+                            ┃   🖍 logiytSuccessUrl()는 단순히 로그아웃을 성공하였을 때 해당 url로 이동하는 것이 전부라면,
+                            ┃      logoutSuccessHandler()는 구체적인 여러 내용들을 설정할 수 있습니다.
+                    .logoutSuccessHandler(logoutSuccessHandler())*/
+
+
+        // ━━━━━━━━━━━━━━━━ 🥎사용자 정보 기억
+        /* 🧾 Remember Me 기능
+                🖍 사용자 세션이 만료되고 웹 브라우저가 종료된 후에도 애플리케이션이 사용자의 정보를 기억하는 기능
+                🖍 사용자가 로그인을 할 때 Remember me 기능을 활성화 시킬 경우 서버에서는 Remember Me 쿠키를 생성하게 됨
+                    그 후 로그인알 할 때는 애플리케이션에 저장되어 있는 Remember Me 쿠키를 갖고 http header에 쿠키를 담아서 request를 보내게 되며,
+                    server는 http header를 확인한 후 토큰 기반의 인증을 통해 유효성 검사를하고 로그인 승인을 해줌
+                        ┃ 인증 성공(Remember-Me쿠키 설정)
+                        ┃ 인증 실패(쿠키가 존재하면 쿠키 무효화)
+                        ┃ 로그아웃(쿠키가 존재하면 쿠키 무효화)
+
+            🧾 동작 원리
+                🖍 RememberMeAuthenticationFilter는 세션에 SecurityContext가 Null일 때(인증 객체가 없는 경우),
+                    또는 사용자의 Request http header에 remember me쿠키가 있는 경우 동작을 하게 된다.
+                🖍 RemembeMeService는 인터페이스로 TokenBasedRememberMeServices와 PersistentTokenBasedRememberMeServices 구현체가 있다.
+                    이 두 구현체가 실제로 remember me인증 처리를 하는 구현체이다.
+                    ➕ 인터페이스 TokenBasedRememberMeServices는 메모리에 있는 토큰과 사용자가 request header에 담아서 보낸 토큰을 비교하여 인증을 한다. (기본적으로 14일만 토큰을 유지한다.)
+                    ➕ 인터페이스 PersistentTokenBasedRememberMeServices는 DB에 저장된 토큰과 사용자가 request header에 담아서 보낸 토큰을 비교하여 인증을 한다. (영구적인 방법)
+                🖍 request에서 토큰을 추출한다.
+                🖍 Token이 존재하는지 확인 후 토큰이 없다면 다음 filter로 넘어간다.
+                🖍 토큰이 옳바른 형태이며 해당 토큰 값과 서버의 값의 일치하며 사용자의 정보가 일치하는지 확인 후 Authentication을 생성하고 AuthenticationManager를 통해 인증처리를 하게 됩니다.
+        */
+        http
+                .rememberMe()
+                    .rememberMeParameter("remember") // remember me의 파라미터 명을 설정하는 api. Default==remember-me
+                    .tokenValiditySeconds(3600)// remember me 쿠키의 만료 시간을 설정하는 api. Default==14일
+                    .alwaysRemember(true); // remember me 기능이 활성화되지 않아도 항상 실행하도록 설정하는 기능 Dafault==false
+                    //.userDetailsService(userDetailsService); // remember me 기능을 수행할 때 시스템의 사용자 계정을 조회할 때 처리를 설정하는 api
+
+        // ━━━━━━━━━━━━━━━━ 🥎동시 세션(Session) 관리 설정
+        /* 생성된 계정으로 서버로부터 인증을 받게되면 서버에서 하나의 세션이 생성됨.
+            그리고 다른 브라우저, 또는 다른 PC에서 같은 계정으로 로그인 할 경우 이전에 서버에서 만들어진 세션을 같이 공유하는 것이 아닌 새로운 세션을 생성.
+            SpringSecurity에서는 한개의 계정에 대해 생성되는 세션의 개수를 설정하고 세션이 최대 개수가 되었을 때 처리할 방법을 쉽게 설정할 수 있음.
+        */
+        http
+                .sessionManagement()
+                    // 최대 허용 가능 세션 수를 설정하는 api. (-1 값을 넣으면 무제한으로 세션 생성 허용)
+                    .maximumSessions(1)
+                    /* 최대 허용 세션의 수가 되었을 때 추가적인 인증 요청(세션 생성)이 있을 경우 어떻게 처리할지 정하는 api.
+                            true인 경우 현재 사용자 인증 실패. false인 경우 기존 세션 만료(Default) */
+                    .maxSessionsPreventsLogin(true)
+                    // 세션이 유효하지 않을 때 이동할 페이지를 설정하는 api
+                //  .invalidSessionUrl("/invalid")
+                    // 세션이 만료된 경우 이동할 페이지를 정하는 api
+                    .expiredUrl("/expired ");
+
+                    /* 🧾 최대 세션의 개수일 때의 처리 방법
+                            🧣 이전의 사용자 세션 만료
+                                step 1. 사용자 1이 로그인을 하면 서버에 해당 계정에 대한 세션이 생성됩니다.
+                                step 2. 사용자 2가 사용자 1이 로그인 하였던 동일 계정으로 로그인을 시도하게되면 여러 filter중 SessionManageMentFilter에서 maximumSessions()의 값이 1인 것을 확인합니다.
+                                step 3. 서버는 새롭게 접근을 시도한 사용자 2의 세션을 새로 생성하고 인증을 해주며 사용자 1의 세션은 session.isExpired() == true으로 변경하여 세션 만료 설정을 해줍니다.
+                                step 4. 사용자 1이 다시 request를 요청하면 ConcurrentSessionFilter에서 session.isExpired()값을 확인하여 세선이 만료여부를 확인 후 세션의 만료 여부를 확인 후 새로운 세션을 만들도록 인증을 요청하게 됩니다
+                            🧣 새로운 사용자 인증 실패
+                                step 1. 사용자 1이 로그인을 하면 서버에 해당 계정에 대한 세션이 생성됩니다.
+                                step 2. 사용자 2가 사용자 1이 로그인 하였던 동일 계정으로 로그인을 시도하게되면 여러 filter중 SessionManageMentFilter에서 maximumSessions()의 값이 1인 것을 확인합니다.
+                                Step 3. 서버에서는 사용자 2의 세션을 생성되지 않고 인증 예외를 발생시킵니다.
+
+                                    ┃ ConcurrentSessionFilter : 매 요청마다 사용자 세션의session.isExpired() 여부를 확인하여
+                                    ┃                           세션이 만료로 되어있을 경우 로그아웃처리(만료처리)를 해주는 필터입니다.
+                                    ┃ SessionManageMentFilter : 동시적 세션제어, 세션 고정 보호, 세션 생성 정책 등의 세션의 전반적인 관리를 해주는 필터입니다.
+                    */
+
+        // ━━━━━━━━━━━━━━━━ 🥎세션 고정 보호
+        /* 고정된 세션 아이디를 가진 세션들을 사용하다보면 공격자가 하나의 세션을 서버에 생성하고 해당 세션 아이디를 사용자에게 넘겨준다면,
+            사용자와 공격자는 동일한 세션을 사용하게 되어 공격자가 사용자의 정보들을 빼낼 수 있는 문제가 발생
+        */
+        http
+                .sessionManagement()
+                    .sessionFixation()
+                        /*사용자가 인증을 시도하게 되면 사용자 세션은 그대로 두고 세션 아이디만 변경.
+                        -> 세션 아이디가 변경되어서 공격자가 갖고있는 세션 아이디는 무용지물이 됨*/
+                        .changeSessionId();
+                        // .newSession() : 새로운 세션과 아이디를 생성하며 이전의 설정값들을 사용하지 못하게 함
+                        // .none() : 아무런 보호도 하지 않음
+                            /*
+                            ┃ changeSessionId(), migrateSession()은 이전 세션의 설정 값들을 그대로 사용할 수 있습니다.
+                            ┃ 하지만 newSession()의 경우 새로운 세션을 생성하여 이전 설정 값을 사용하지 못합니다.
+
+                            ➕ 해당 기능은 따로 설정하지 않아도 SpringSecurity가 기본적으로 적용
+                            */
+
+        // ━━━━━━━━━━━━━━━━ 🥎세션 정책 설정
+        http
+                .sessionManagement()
+                    .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED);
+                        /*
+                            .ALWAYS : SpringSecurity가 항상 세션을 생성함
+                            .IF_REQUIRED : SpringSecurity가 필요 시 생성 (Default)
+                            .NEVER : SpringSecurity가 생성하지 않지만, 이미 존재하면 사용
+                            .STATELESS : SpringSecurity가 생성하지 않고, 존재해도 사용하지 않음 (JWT와 같이 세션을 사용하지 않는 경우 사용됨)
+                        */
+
+        // ━━━━━━━━━━━━━━━━ 🥎CSRF Filter (Cross-Site Request Forgery, 사이트 간 요청 위조)
+        /* 🧾사용자가 자신의 의지와 무관하게 공격자가 의도한 행동을하며 특정 웹페이지를 보안에 취약하게 하거나 데이터의 수정, 삭제 등의 동작을 하게 만드는 공격 방법
+                🖍 방어 방법 : Referrer 검증, CAPTCHA 사용, CSRF Token 사용 (SpringSecurity지원)
+                🖍 CSRF Token 동작 :
+                    client로 부터 request가 있을 경우 csrf token 발급. 그 후 client는 PATCH, POST, PUT, DELETE request를 보낼 때 csrf token을 header에 담아서
+                    request를 보내며 server에서는 server에 저장된 csrf 값과 비교하며, 값이 같지 않다면 AccessDeniedException을 발생시키고, 값이 같다면 request를 처리 */
+        http
+                .csrf(); // .csrf.disabled(); <-비활성화 (Default 활성화)
+    }
+
+
+
+    /* 🧾SpringSecurity의 의존성을 추가한 경우 WebSecurityConfigurerAdapter 클래스가 실행됨
+            WebSecurityConfigurerAdapter 클래스는 SpringSecurity의 웹 보안 기능의 초기화 및 설정들을 담당하는 내용이 담겨있으며
+            내부적으로 getHttp() 메서드가 실행될 때 HTTPSecurity 클래스를 생성하게 됨.
+            이 때의 HTTPSecurity는 인증/인가 API들의 설정을 제공
+
+        protected final HttpSecurity getHttp() throws Exception {
+            if(this.http != null) {
+                return this.http;
+            }
+
+            if(!this.disableDefaults) {
+                applyDefaultConfiguration(this.http);
+            }
+            configure(this.http);
+            / 이곳의 configure 메서드를 override하면 우리가 원하는 보안체계를 만들 수 있음
+            return this.http;
+        }
+
+        // 기본적으로 적용되는 filter들을 포함한 configuration 대한 메서드
+        private void applyDefaultConfiguration(HttpSecurity http) throws Exception {
+            http.csrf();
+            http.addFilter(new WebAsyncManagerIntegrationFilter());
+            http.exceptionHandling();
+            http.headers();
+            http.sessionManagement();
+            http.securityContext();
+            http.requestCache();
+            http.anonymous();
+            http.servletApi();
+            http.apply(new DefaultLoginPageConfigurer<>());
+            http.logout();
+        }
+
+        인증/인가의 설정을 바꾸고자 한다면 WebSecurityConfigurerAdapter 클래스를 상속한 SecurityConfig 클래스를 생성하여
+        copnfigure(HttpSecurity http) 메서드를 override하며 설정해야함
+        (위의
+            protected void configure(HttpSecurity http) throws Exception {
+                                                                                      )
+    */
+}
