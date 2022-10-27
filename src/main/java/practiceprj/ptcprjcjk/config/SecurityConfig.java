@@ -75,8 +75,8 @@ public class SecurityConfig {
                 .antMatchers(PERMIT_URL).permitAll() // 설정된 url 허용
                 .anyRequest().hasRole("USER") // 로그인 정보의 ROLE을 비교하여 USER 에게만 허용
                 .and()
-                .addFilterBefore(jwtExceptionFilter, JwtAuthenticationFilter.class)
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class) // 인증 객체 생성 완료 후 진행
+                .addFilterBefore(jwtExceptionFilter, JwtAuthenticationFilter.class)
                 /*  🧾Filter 동작 순서(addFilterBefore) ->
                     1. UsernamePasswordAuthenticationFilter
                     2. Authentication Manager (JwtAuthenticationFilter)

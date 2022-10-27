@@ -63,4 +63,12 @@ public class LoginController {
         return "hello!";
     }
     */
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━ Vue 통신 테스트
+    @PostMapping("/test")
+    public String test(@RequestBody @Valid boolean fanCheck) {
+        String yoasobi = "당신은 yoasobi의 팬이 아닙니다.";
+        if(fanCheck == true) { yoasobi = "yoasobi"; }
+        return yoasobi;
+    } */
 }

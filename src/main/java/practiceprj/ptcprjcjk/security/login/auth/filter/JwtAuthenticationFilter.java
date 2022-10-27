@@ -1,6 +1,7 @@
 package practiceprj.ptcprjcjk.security.login.auth.filter;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import practiceprj.ptcprjcjk.security.login.auth.provider.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -13,6 +14,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+// @Component
 @RequiredArgsConstructor /* Lombok Annotation
 모든 멤버 변수를 초기화시키는 생성자를 생성 final이나 @NonNull인 필드 값만 파라미터로 받는 생성자를 만들어줌*/
 public class JwtAuthenticationFilter extends OncePerRequestFilter /* 어느 서블릿 컨테이너에서나 요청당 한 번의 실행을 보장 */ {
